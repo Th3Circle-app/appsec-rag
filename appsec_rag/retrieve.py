@@ -16,6 +16,7 @@ from .embed import embed_one
 from .store import get_collection
 
 MIN_SIMILARITY = 0.25   # below this, a chunk is not really relevant
+MAX_QUERY_CHARS = 4000  # cap the query so a giant input can't burn CPU embedding it
 
 
 @dataclass
@@ -31,7 +32,7 @@ class Result:
 
 def retrieve(question: str, k: int = 4, db_path: str | None = None) -> list[Result]:
     col = get_collection(db_path) if db_path else get_collection()
-    qv = embed_one(question)
+    qv = embed_one(question[:MAX_QUERY_CHARS])   # bounded input, no resource blowup
     res = col.query(query_embeddings=[qv], n_results=k,
                     include=["documents", "metadatas", "distances"])
 

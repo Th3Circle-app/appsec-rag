@@ -72,3 +72,12 @@ def test_no_key_falls_back_to_extractive(monkeypatch):
     assert ans.used_llm is False
     assert ans.citations           # still cites its source
     assert ans.text.strip()
+
+
+# ---------- red-team regression: query size cap ----------
+def test_huge_query_is_capped_and_fast():
+    import time
+    t = time.perf_counter()
+    results = retrieve("ssrf " * 100000, k=3)   # capped before embedding
+    assert time.perf_counter() - t < 3.0, "huge query was not capped (resource risk)"
+    assert isinstance(results, list)
