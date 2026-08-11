@@ -62,6 +62,17 @@ def _window(text: str) -> list[str]:
     """Pack a section's text into overlapping char windows, splitting on
     paragraph boundaries where possible so chunks stay readable."""
     paras = [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
+    # Hard-split any single paragraph longer than the window, so no chunk is
+    # oversized (a giant unbroken paragraph would otherwise defeat chunking).
+    step = max(1, CHUNK_CHARS - OVERLAP_CHARS)
+    normalized: list[str] = []
+    for p in paras:
+        if len(p) <= CHUNK_CHARS:
+            normalized.append(p)
+        else:
+            for i in range(0, len(p), step):
+                normalized.append(p[i:i + CHUNK_CHARS])
+    paras = normalized
     chunks: list[str] = []
     cur = ""
     for p in paras:

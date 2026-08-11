@@ -81,3 +81,23 @@ def test_huge_query_is_capped_and_fast():
     results = retrieve("ssrf " * 100000, k=3)   # capped before embedding
     assert time.perf_counter() - t < 3.0, "huge query was not capped (resource risk)"
     assert isinstance(results, list)
+
+
+# ---------- red-team regressions (line-by-line pass) ----------
+def test_oversized_paragraph_is_split():
+    # a single unbroken paragraph larger than the window must not become one giant chunk.
+    # (chunks may run to CHUNK_CHARS + OVERLAP_CHARS because each carries an overlap tail.)
+    from appsec_rag.ingest import _window, CHUNK_CHARS, OVERLAP_CHARS
+    chunks = _window("word " * 1000)            # ~5000 chars, no blank lines
+    assert len(chunks) > 1                       # it actually got split
+    assert max(len(c) for c in chunks) <= CHUNK_CHARS + OVERLAP_CHARS + 2
+
+
+def test_empty_embed_batch_does_not_crash():
+    from appsec_rag.embed import embed
+    assert embed([]) == []
+
+
+def test_retrieve_with_nonpositive_k_does_not_crash():
+    # k <= 0 must be coerced, not passed through to Chroma (which raises)
+    assert isinstance(retrieve("how do I fix an SSRF", k=0), list)

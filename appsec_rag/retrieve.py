@@ -32,6 +32,7 @@ class Result:
 
 def retrieve(question: str, k: int = 4, db_path: str | None = None) -> list[Result]:
     col = get_collection(db_path) if db_path else get_collection()
+    k = max(1, int(k))                           # Chroma rejects n_results <= 0
     qv = embed_one(question[:MAX_QUERY_CHARS])   # bounded input, no resource blowup
     res = col.query(query_embeddings=[qv], n_results=k,
                     include=["documents", "metadatas", "distances"])

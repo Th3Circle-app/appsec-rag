@@ -21,7 +21,10 @@ def _ef():
 
 def embed(texts: list[str]) -> list[list[float]]:
     """Embed a batch of strings into 384-dim vectors."""
-    vecs = _ef()(list(texts))
+    texts = list(texts)
+    if not texts:            # empty batch -> empty result (the ONNX backend errors on [])
+        return []
+    vecs = _ef()(texts)
     return [list(map(float, v)) for v in vecs]
 
 
