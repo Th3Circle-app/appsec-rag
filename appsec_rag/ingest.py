@@ -41,7 +41,17 @@ def _sections(md: str) -> list[tuple[str, str]]:
     title = ""
     current_heading = ""
     buf: list[str] = []
+    in_fence = False
     for line in lines:
+        # Track fenced code blocks so a '## comment' inside code is not mistaken
+        # for a section heading (which would fragment the doc and mis-cite it).
+        if line.lstrip().startswith(("```", "~~~")):
+            in_fence = not in_fence
+            buf.append(line)
+            continue
+        if in_fence:
+            buf.append(line)
+            continue
         if line.startswith("# ") and not line.startswith("## "):
             title = line[2:].strip()
             current_heading = title
@@ -91,7 +101,9 @@ def load_chunks(corpus_dir: str | Path) -> list[Chunk]:
     corpus = Path(corpus_dir)
     out: list[Chunk] = []
     for md_path in sorted(corpus.glob("*.md")):
-        text = md_path.read_text(encoding="utf-8")
+        # Decode leniently: a single bad byte in one doc must not crash the
+        # whole build. Strip a leading BOM so it never pollutes the first heading.
+        text = md_path.read_text(encoding="utf-8", errors="replace").lstrip("﻿")
         for heading, body in _sections(text):
             for i, piece in enumerate(_window(body)):
                 cid = f"{md_path.name}::{heading}::{i}"

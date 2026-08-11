@@ -46,5 +46,16 @@ def build_index(corpus_dir: str, db_path: str = DEFAULT_DB) -> int:
     return len(chunks)
 
 
+class IndexNotBuilt(RuntimeError):
+    """Raised when a query hits a store that has not been built yet."""
+
+
 def get_collection(db_path: str = DEFAULT_DB):
-    return _client(db_path).get_collection(COLLECTION)
+    try:
+        return _client(db_path).get_collection(COLLECTION)
+    except Exception as e:
+        # Chroma raises an internal NotFoundError; translate it into a clear,
+        # actionable message instead of leaking a library-internal exception.
+        raise IndexNotBuilt(
+            f"No index found at {db_path!r}. Run `python -m appsec_rag build` first."
+        ) from e

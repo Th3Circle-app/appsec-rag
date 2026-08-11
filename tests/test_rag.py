@@ -101,3 +101,30 @@ def test_empty_embed_batch_does_not_crash():
 def test_retrieve_with_nonpositive_k_does_not_crash():
     # k <= 0 must be coerced, not passed through to Chroma (which raises)
     assert isinstance(retrieve("how do I fix an SSRF", k=0), list)
+
+
+def test_hash_inside_code_fence_is_not_a_heading():
+    # a '## comment' inside a fenced code block must stay body, not become a section
+    from appsec_rag.ingest import _sections
+    md = "# Doc\n\n## Real\n\ntext\n\n```python\n## not a heading\nx = 1\n```\n\nmore"
+    headings = [h for h, _ in _sections(md)]
+    assert "not a heading" not in headings
+    assert "Real" in headings
+
+
+def test_corpus_with_bad_utf8_does_not_crash(tmp_path):
+    # one doc with invalid UTF-8 bytes must not crash ingestion of the whole corpus
+    (tmp_path / "bad.md").write_bytes(b"# T\n\n## H\n\nvalid \xff\xfe bytes here\n")
+    (tmp_path / "good.md").write_text("# G\n\n## H\n\nreal ssrf guidance")
+    chunks = load_chunks(str(tmp_path))
+    assert len(chunks) >= 2
+    assert any(c.source == "good.md" for c in chunks)
+
+
+def test_query_before_build_raises_clear_error(tmp_path):
+    # hitting a never-built store must give an actionable message, not a raw
+    # ChromaDB NotFoundError leaking out of the vector library.
+    from appsec_rag.store import IndexNotBuilt
+    with pytest.raises(IndexNotBuilt) as ei:
+        retrieve("anything", db_path=str(tmp_path / "unbuilt"))
+    assert "build" in str(ei.value).lower()
